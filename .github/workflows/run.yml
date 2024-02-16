@@ -1,0 +1,59 @@
+name: "Freenom"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 2 */3 * *"
+
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
+jobs:
+  Freenom:
+    runs-on: ubuntu-latest
+    name: "Freenom"
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.0.0
+        with:
+          python-version: 3.12
+
+      - name: Set up WARP
+        uses: fscarmen/warp-on-actions@v1.0
+
+      - name: Run python
+        env:
+          FREENOM_USERNAME: ${{ secrets.FREENOM_USERNAME }}
+          FREENOM_PASSWORD: ${{ secrets.FREENOM_PASSWORD }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_USER_ID: ${{ secrets.TG_USER_ID }}
+        run: |
+          pip install requests
+          python3 Freenom.py
+          git checkout --orphan tmp_work
+          git branch -d main
+          echo "DATE=$(date "+%Y/%m/%d")" >> $GITHUB_ENV
+
+      - name: Upload to repository
+        uses: stefanzweifel/git-auto-commit-action@v4.16.0
+        with:
+          commit_message: ${{ env.DATE }}
+          create_branch: true
+          branch: main
+          push_options: --force
+
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2.0.6
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0
+          delete_run_by_conclusion_pattern: "cancelled, skipped, success"
